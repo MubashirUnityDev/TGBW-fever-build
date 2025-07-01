@@ -38,15 +38,15 @@
 
   <script>
     var buildUrl = "Build";
-    var loaderUrl = buildUrl + "/TGBW.loader.js";
+    var loaderUrl = buildUrl + "/{{{ LOADER_FILENAME }}}";
     var config = {
-      dataUrl: buildUrl + "/TGBW.data",
-      frameworkUrl: buildUrl + "/TGBW.framework.js",
-      codeUrl: buildUrl + "/TGBW.wasm",
+      dataUrl: buildUrl + "/{{{ DATA_FILENAME }}}",
+      frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}",
+      codeUrl: buildUrl + "/{{{ CODE_FILENAME }}}",
       streamingAssetsUrl: "StreamingAssets",
-      companyName: "MangoMangoHub",
-      productName: "Boxing Fever",
-      productVersion: "0.5",
+      companyName: "{{{ COMPANY_NAME }}}",
+      productName: "{{{ PRODUCT_NAME }}}",
+      productVersion: "{{{ PRODUCT_VERSION }}}",
       devicePixelRatio: window.devicePixelRatio || 1
     };
 
@@ -54,13 +54,13 @@
     var loadingScreen = document.querySelector("#loading-screen");
     var unityInstance = null;
 
-    function GetScreenOrientation() {
+    function getScreenOrientation() {
       return (window.innerHeight > window.innerWidth) ? "Portrait" : "Landscape";
     }
 
-    function NotifyOrientationChange() {
+    function notifyOrientationChange() {
       if (unityInstance && unityInstance.SendMessage) {
-        var orientation = GetScreenOrientation();
+        var orientation = getScreenOrientation();
         unityInstance.SendMessage('DeviceOrientationHandler', 'OnJSOrientationChange', orientation);
         console.log("Orientation sent to Unity:", orientation);
       } else {
@@ -68,27 +68,32 @@
       }
     }
 
-    function resizeCanvasToFitViewport() {
+    function resizeCanvas() {
       const vh = window.innerHeight * 0.01;
       document.documentElement.style.setProperty('--vh', `${vh}px`);
-
-      const canvasContainer = document.getElementById('canvas-container');
-      const canvas = document.getElementById('unity-canvas');
-
-      canvasContainer.style.height = `${window.innerHeight}px`;
-      canvas.style.height = `${window.innerHeight}px`;
     }
 
-    window.addEventListener("resize", () => {
-      NotifyOrientationChange();
-      resizeCanvasToFitViewport();
-    });
-    window.addEventListener("orientationchange", () => {
-      NotifyOrientationChange();
-      resizeCanvasToFitViewport();
-    });
+    // A flag to prevent the event from firing too rapidly
+    let isResizing = false;
+    function handleResize() {
+        if (isResizing) return;
+        isResizing = true;
+        
+        resizeCanvas();
+        notifyOrientationChange();
+        
+        // Debounce resize events to prevent recursion
+        setTimeout(() => {
+            isResizing = false;
+        }, 100); 
+    }
+
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("orientationchange", handleResize);
+
+    // Initial setup on load
     window.addEventListener("load", () => {
-      resizeCanvasToFitViewport();
+      resizeCanvas();
     });
 
     var script = document.createElement("script");
@@ -99,7 +104,9 @@
       }).then((instance) => {
         unityInstance = instance;
         loadingScreen.style.display = "none";
-        setTimeout(NotifyOrientationChange, 100);
+        
+        // Initial orientation check after Unity is loaded
+        setTimeout(notifyOrientationChange, 100);
 
         if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
           canvas.requestFullscreen = canvas.requestFullscreen || canvas.mozRequestFullScreen || canvas.msRequestFullscreen || canvas.webkitRequestFullscreen;
