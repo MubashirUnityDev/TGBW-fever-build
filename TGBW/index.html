@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Unity WebGL Game</title>
+
+  <link rel="stylesheet" href="style.css">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      height: 100%;
+      width: 100%;
+      touch-action: none;
+      background: black;
+      overscroll-behavior: none;
+    }
+    ::-webkit-scrollbar {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="unity-container">
+    <div id="loading-screen">
+      <div class="spinner"></div>
+      <div id="loading-text">Loading...</div>
+    </div>
+    <div id="canvas-container">
+      <canvas id="unity-canvas" tabindex="-1"></canvas>
+    </div>
+  </div>
+
+  <script>
+    var buildUrl = "Build";
+    var loaderUrl = buildUrl + "/TGBW.loader.js";
+    var config = {
+      dataUrl: buildUrl + "/TGBW.data",
+      frameworkUrl: buildUrl + "/TGBW.framework.js",
+      codeUrl: buildUrl + "/TGBW.wasm",
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: "MangoMangoHub",
+      productName: "Boxing Fever",
+      productVersion: "0.5",
+      devicePixelRatio: window.devicePixelRatio || 1
+    };
+
+    var canvas = document.querySelector("#unity-canvas");
+    var loadingScreen = document.querySelector("#loading-screen");
+    var unityInstance = null;
+
+    function GetScreenOrientation() {
+      return (window.innerHeight > window.innerWidth) ? "Portrait" : "Landscape";
+    }
+
+    function NotifyOrientationChange() {
+      if (unityInstance && unityInstance.SendMessage) {
+        var orientation = GetScreenOrientation();
+        unityInstance.SendMessage('DeviceOrientationHandler', 'OnJSOrientationChange', orientation);
+        console.log("Orientation sent to Unity:", orientation);
+      } else {
+        console.warn("Unity not ready yet.");
+      }
+    }
+
+    function resizeCanvasToFitViewport() {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+
+      const canvasContainer = document.getElementById('canvas-container');
+      const canvas = document.getElementById('unity-canvas');
+
+      canvasContainer.style.height = `${window.innerHeight}px`;
+      canvas.style.height = `${window.innerHeight}px`;
+    }
+
+    window.addEventListener("resize", () => {
+      NotifyOrientationChange();
+      resizeCanvasToFitViewport();
+    });
+    window.addEventListener("orientationchange", () => {
+      NotifyOrientationChange();
+      resizeCanvasToFitViewport();
+    });
+    window.addEventListener("load", () => {
+      resizeCanvasToFitViewport();
+    });
+
+    var script = document.createElement("script");
+    script.src = loaderUrl;
+    script.onload = () => {
+      createUnityInstance(canvas, config, (progress) => {
+        document.querySelector("#loading-text").textContent = `Loading... ${(progress * 100).toFixed(0)}%`;
+      }).then((instance) => {
+        unityInstance = instance;
+        loadingScreen.style.display = "none";
+        setTimeout(NotifyOrientationChange, 100);
+
+        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+          canvas.requestFullscreen = canvas.requestFullscreen || canvas.mozRequestFullScreen || canvas.msRequestFullscreen || canvas.webkitRequestFullscreen;
+          document.addEventListener('click', () => {
+            if (canvas.requestFullscreen) {
+              canvas.requestFullscreen().catch(() => {});
+            }
+          }, { once: true });
+        }
+      }).catch((error) => {
+        alert("Error loading game: " + error);
+      });
+    };
+    document.body.appendChild(script);
+  </script>
+</body>
+</html>
